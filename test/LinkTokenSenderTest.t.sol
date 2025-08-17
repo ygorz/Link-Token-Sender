@@ -8,6 +8,7 @@ import {LinkToken} from "@chainlink/contracts/src/v0.8/shared/token/ERC677/LinkT
 contract LinkTokenSenderTest is Test {
     LinkTokenSender public linkTokenSender;
     LinkToken public mockLinkToken;
+    address public ccipRouterAddress = 0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59;
 
     address public USER = makeAddr("USER");
     address public RECEIVING_ADDRESS1 = makeAddr("RECEIVING_ADDRESS1");
@@ -18,7 +19,7 @@ contract LinkTokenSenderTest is Test {
 
     function setUp() public {
         mockLinkToken = new LinkToken();
-        linkTokenSender = new LinkTokenSender(address(mockLinkToken));
+        linkTokenSender = new LinkTokenSender(address(mockLinkToken), ccipRouterAddress);
     }
 
     function testSendLink() public {
