@@ -6,6 +6,27 @@ import {IRouterClient} from "@chainlink/contracts/src/v0.8/ccip/interfaces/IRout
 
 pragma solidity ^0.8.30;
 
+/*
+██╗     ██╗███╗   ██╗██╗  ██╗    ████████╗ ██████╗ ██╗  ██╗███████╗███╗   ██╗
+██║     ██║████╗  ██║██║ ██╔╝    ╚══██╔══╝██╔═══██╗██║ ██╔╝██╔════╝████╗  ██║
+██║     ██║██╔██╗ ██║█████╔╝        ██║   ██║   ██║█████╔╝ █████╗  ██╔██╗ ██║
+██║     ██║██║╚██╗██║██╔═██╗        ██║   ██║   ██║██╔═██╗ ██╔══╝  ██║╚██╗██║
+███████╗██║██║ ╚████║██║  ██╗       ██║   ╚██████╔╝██║  ██╗███████╗██║ ╚████║
+╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝       ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝
+                                                                             
+███████╗███████╗███╗   ██╗██████╗ ███████╗██████╗                            
+██╔════╝██╔════╝████╗  ██║██╔══██╗██╔════╝██╔══██╗                           
+███████╗█████╗  ██╔██╗ ██║██║  ██║█████╗  ██████╔╝                           
+╚════██║██╔══╝  ██║╚██╗██║██║  ██║██╔══╝  ██╔══██╗                           
+███████║███████╗██║ ╚████║██████╔╝███████╗██║  ██║                           
+╚══════╝╚══════╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝                           
+*/
+
+/**
+ * @title LinkTokenSender
+ * @author George Gorzhiyev
+ * @notice under construction...
+ */
 contract LinkTokenSender {
     /*---------> ERRORS <---------------------------------------*/
     /*//////////////////////////////////////////////////////////*/
@@ -62,9 +83,16 @@ contract LinkTokenSender {
 
     // <------------------------------------------------------------------------>
     // <---// WORK IN PROGRESS - TESTING //------------------------------------->
-    function sendLinkCrossChain(address receivingAddress, uint256 amountToSend) external {
+    function sendLinkCrossChain(address receivingAddress, uint256 amountToSend, uint64 destinationChain) external {
         Client.EVM2AnyMessage memory evm2AnyMessage =
             _buildCCIPMessage(receivingAddress, i_linkTokenAddress, amountToSend, i_linkTokenAddress);
+
+        uint256 fees = i_ccipRouter.getFee(destinationChain, evm2AnyMessage);
+
+        i_linkToken.transferFrom(msg.sender, address(this), amountToSend + fees);
+        i_linkToken.approve(address(i_ccipRouter), (amountToSend + fees));
+
+        i_ccipRouter.ccipSend(destinationChain, evm2AnyMessage);
     }
 
     function _buildCCIPMessage(address _receiver, address _tokenToSend, uint256 _amountToSend, address _feeTokenAddress)
@@ -72,23 +100,23 @@ contract LinkTokenSender {
         pure
         returns (Client.EVM2AnyMessage memory)
     {
-        return Client.EVM2AnyMessage{
-            receiver: abi.encode(_receiver),
-            data: abi.encode(_tokenToSend, _amountToSend),
-            tokenAmounts: new EVMTokenAmount[](0),
-            feeToken: _feeTokenAddress,
-            extraArgs: ""
-        };
+        // Create the EVMTokenAmount array with the token and amount to send
+        Client.EVMTokenAmount[] memory tokenAmount = new Client.EVMTokenAmount[](1);
+        tokenAmount[0] = Client.EVMTokenAmount({token: _tokenToSend, amount: _amountToSend});
 
-        /*
-        struct EVM2AnyMessage {
-            bytes receiver; // abi.encode(receiver address) for dest EVM chains
-            bytes data; // Data payload
-            EVMTokenAmount[] tokenAmounts; // Token transfers
-            address feeToken; // Address of feeToken. address(0) means you will send msg.value.
-            bytes extraArgs; // Populate this with _argsToBytes(EVMExtraArgsV2)
-        }
-        */
+        // Create the EVM2AnyMessage struct and return it
+        return Client.EVM2AnyMessage({
+            receiver: abi.encode(_receiver),
+            data: "",
+            tokenAmounts: tokenAmount,
+            feeToken: _feeTokenAddress,
+            extraArgs: Client._argsToBytes(
+                Client.EVMExtraArgsV2({
+                    gasLimit: 0, // Default gas limit, can be adjusted
+                    allowOutOfOrderExecution: true // Default value, can be changed as needed
+                })
+            )
+        });
     }
 
     // <---// WORK IN PROGRESS - TESTING //------------------------------------->
