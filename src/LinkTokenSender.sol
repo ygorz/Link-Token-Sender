@@ -44,12 +44,13 @@ contract LinkTokenSender {
     /*//////////////////////////////////////////////////////////*/
     constructor(address linkTokenAddress, address ccipRouterAddress) {
         i_linkToken = LinkTokenInterface(linkTokenAddress);
-        i_linkTokenAddress = linkTokenAddress;
+        i_linkTokenAddress = linkTokenAddress; // do i need this?
         i_ccipRouter = IRouterClient(ccipRouterAddress);
     }
 
     /*---------> External Functions <---------------------------*/
     /*//////////////////////////////////////////////////////////*/
+    /* (Work in progress) */
     function sendLink(address[] calldata receivingAddresses, uint256[] calldata amountsToSend) external {
         // Check if the length of receivingAddresses and amountsToSend match
         if (receivingAddresses.length != amountsToSend.length) {
@@ -83,15 +84,26 @@ contract LinkTokenSender {
 
     // <------------------------------------------------------------------------>
     // <---// WORK IN PROGRESS - TESTING //------------------------------------->
+    /**
+     * @param receivingAddress The address to receive the LINK tokens
+     * @param amountToSend The amount of LINK tokens to send
+     * @param destinationChain The destination chain ID
+     * @dev Basic cross-chain LINK transfer function for testing
+     */
     function sendLinkCrossChain(address receivingAddress, uint256 amountToSend, uint64 destinationChain) external {
         Client.EVM2AnyMessage memory evm2AnyMessage =
             _buildCCIPMessage(receivingAddress, i_linkTokenAddress, amountToSend, i_linkTokenAddress);
 
+        // Get the fee for sending the message
         uint256 fees = i_ccipRouter.getFee(destinationChain, evm2AnyMessage);
 
+        // Transfer LINK tokens to the contract for sending + fee
         i_linkToken.transferFrom(msg.sender, address(this), amountToSend + fees);
+
+        // Approve CCIP Router to spend LINK tokens
         i_linkToken.approve(address(i_ccipRouter), (amountToSend + fees));
 
+        // Send the message through CCIP
         i_ccipRouter.ccipSend(destinationChain, evm2AnyMessage);
     }
 
