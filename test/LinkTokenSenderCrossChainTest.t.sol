@@ -5,16 +5,16 @@ import {Test, console2} from "forge-std/Test.sol";
 import {LinkTokenSender} from "src/LinkTokenSender.sol";
 import {IERC20} from
     "lib/chainlink-brownie-contracts/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {CCIPLocalSimulatorFork, Register} from "@chainlink/local/src/ccip/CCIPLocalSimulatorFork.sol";
+import {CCIPLocalSimulatorForkUMV, Register} from "test/CCIPLocalSimulatorForkMod/CCIPLocalSimulatorForkUMV.sol";
 
 // Not currently used
 import {DeployLinkTokenSender} from "script/DeployLinkTokenSender.s.sol";
-import {IRouterClient} from "@chainlink/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
-import {Client} from "@chainlink/contracts/src/v0.8/ccip/libraries/Client.sol";
+import {IRouterClient} from "lib/chainlink-brownie-contracts/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
+import {Client} from "lib/chainlink-brownie-contracts/contracts/src/v0.8/ccip/libraries/Client.sol";
 
 contract LinkTokenSenderCrossChainTest is Test {
     LinkTokenSender public linkTokenSender;
-    CCIPLocalSimulatorFork public ccipLocalSimulatorFork;
+    CCIPLocalSimulatorForkUMV public ccipLocalSimulatorFork;
 
     uint256 public ethereumMainnetForkId;
     uint256 public baseMainnetForkId;
@@ -39,7 +39,7 @@ contract LinkTokenSenderCrossChainTest is Test {
         console2.log("Base Mainnet Fork: ", baseMainnetForkId); // Fork ID != Chain Id
 
         // CCIP 1. Create CCIP local simulator fork
-        ccipLocalSimulatorFork = new CCIPLocalSimulatorFork();
+        ccipLocalSimulatorFork = new CCIPLocalSimulatorForkUMV();
 
         // CCIP 2. Add networks to CCIP simulator
         // -> Add ETH mainnet
@@ -94,9 +94,6 @@ contract LinkTokenSenderCrossChainTest is Test {
             new LinkTokenSender(ethMainnetNetworkDetails.linkAddress, ethMainnetNetworkDetails.routerAddress);
     }
 
-    //0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196
-    //0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196
-
     function testSendLinkAndPayLinkCrossChainWorks() public {
         // Check that initial balance of receiving address on Base network is 0
         vm.selectFork(baseMainnetForkId);
@@ -117,7 +114,7 @@ contract LinkTokenSenderCrossChainTest is Test {
         vm.stopPrank();
 
         // Have CCIP switch chains and route the message
-        ccipLocalSimulatorFork.switchChainAndRouteMessage(baseMainnetForkId);
+        ccipLocalSimulatorFork.switchSingleChainRouteAllDestMessages(baseMainnetForkId);
 
         // Check the USER has less LINK after sending
         // NEEDS WORK HERE!

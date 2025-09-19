@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
-import {Client} from "@chainlink/contracts/src/v0.8/ccip/libraries/Client.sol";
-import {IRouterClient} from "@chainlink/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
+import {LinkTokenInterface} from
+    "lib/chainlink-brownie-contracts/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
+import {Client} from "lib/chainlink-brownie-contracts/contracts/src/v0.8/ccip/libraries/Client.sol";
+import {IRouterClient} from "lib/chainlink-brownie-contracts/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
 
 pragma solidity ^0.8.30;
 
@@ -13,13 +14,13 @@ pragma solidity ^0.8.30;
 ██║     ██║██║╚██╗██║██╔═██╗        ██║   ██║   ██║██╔═██╗ ██╔══╝  ██║╚██╗██║
 ███████╗██║██║ ╚████║██║  ██╗       ██║   ╚██████╔╝██║  ██╗███████╗██║ ╚████║
 ╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝       ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝
-                                                                             
-███████╗███████╗███╗   ██╗██████╗ ███████╗██████╗                            
-██╔════╝██╔════╝████╗  ██║██╔══██╗██╔════╝██╔══██╗                           
-███████╗█████╗  ██╔██╗ ██║██║  ██║█████╗  ██████╔╝                           
-╚════██║██╔══╝  ██║╚██╗██║██║  ██║██╔══╝  ██╔══██╗                           
-███████║███████╗██║ ╚████║██████╔╝███████╗██║  ██║                           
-╚══════╝╚══════╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝                           
+
+███████╗███████╗███╗   ██╗██████╗ ███████╗██████╗
+██╔════╝██╔════╝████╗  ██║██╔══██╗██╔════╝██╔══██╗
+███████╗█████╗  ██╔██╗ ██║██║  ██║█████╗  ██████╔╝
+╚════██║██╔══╝  ██║╚██╗██║██║  ██║██╔══╝  ██╔══██╗
+███████║███████╗██║ ╚████║██████╔╝███████╗██║  ██║
+╚══════╝╚══════╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝
 */
 
 /**
@@ -112,6 +113,71 @@ contract LinkTokenSender {
         pure
         returns (Client.EVM2AnyMessage memory)
     {
+        // Create the EVMTokenAmount array with the token and amount to send
+        Client.EVMTokenAmount[] memory tokenAmount = new Client.EVMTokenAmount[](1);
+        tokenAmount[0] = Client.EVMTokenAmount({token: _tokenToSend, amount: _amountToSend});
+
+        // Create the EVM2AnyMessage struct and return it
+        return Client.EVM2AnyMessage({
+            receiver: abi.encode(_receiver),
+            data: "",
+            tokenAmounts: tokenAmount,
+            feeToken: _feeTokenAddress,
+            extraArgs: Client._argsToBytes(
+                Client.EVMExtraArgsV2({
+                    gasLimit: 0, // Default gas limit, can be adjusted
+                    allowOutOfOrderExecution: true // Default value, can be changed as needed
+                })
+            )
+        });
+    }
+
+    // <---// WORK IN PROGRESS - TESTING //------------------------------------->
+    // <------------------------------------------------------------------------>
+
+    // <------------------------------------------------------------------------>
+    // <---// WORK IN PROGRESS - TESTING //------------------------------------->
+
+    function sendLinkMultiCrossChain(
+        address[] calldata receivingAddresses,
+        uint256[] calldata amountsToSend,
+        uint64[] calldata destinationChains
+    ) external {
+        uint256 totalFees;
+        uint256 totalAmountsToSend;
+
+        // Client.EVM2AnyMessage[] memory ccipTxs;
+        Client.EVM2AnyMessage[] memory ccipTxs = new Client.EVM2AnyMessage[](receivingAddresses.length);
+
+        for (uint256 i = 0; i < receivingAddresses.length; i++) {
+            totalAmountsToSend += amountsToSend[i];
+            Client.EVM2AnyMessage memory evm2AnyMessage =
+                _buildCCIPMessage2(receivingAddresses[i], i_linkTokenAddress, amountsToSend[i], i_linkTokenAddress);
+            // Get the fee for sending the message
+            uint256 fee = i_ccipRouter.getFee(destinationChains[i], evm2AnyMessage);
+            totalFees += fee;
+
+            ccipTxs[i] = evm2AnyMessage;
+        }
+
+        // Transfer LINK tokens to the contract for sending + fee
+        i_linkToken.transferFrom(msg.sender, address(this), totalFees + totalAmountsToSend);
+
+        // Approve CCIP Router to spend LINK tokens
+        i_linkToken.approve(address(i_ccipRouter), (totalFees + totalAmountsToSend));
+
+        // Send the message through CCIP
+        for (uint256 i = 0; i < ccipTxs.length; i++) {
+            i_ccipRouter.ccipSend(destinationChains[i], ccipTxs[i]);
+        }
+    }
+
+    function _buildCCIPMessage2(
+        address _receiver,
+        address _tokenToSend,
+        uint256 _amountToSend,
+        address _feeTokenAddress
+    ) private pure returns (Client.EVM2AnyMessage memory) {
         // Create the EVMTokenAmount array with the token and amount to send
         Client.EVMTokenAmount[] memory tokenAmount = new Client.EVMTokenAmount[](1);
         tokenAmount[0] = Client.EVMTokenAmount({token: _tokenToSend, amount: _amountToSend});

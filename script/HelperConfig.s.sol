@@ -3,7 +3,7 @@
 pragma solidity ^0.8.30;
 
 import {Script} from "forge-std/Script.sol";
-import {Register} from "@chainlink/local/src/ccip/CCIPLocalSimulatorFork.sol";
+import {Register} from "lib/chainlink-local/src/ccip/Register.sol";
 
 /*
 Not currently used, need to figure out how to use this more gracefully
